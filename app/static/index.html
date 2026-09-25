@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev model router</title>
+<style>
+  :root{
+    --bg:#071a2f; --panel:#0c2340; --panel2:#0f2b4d; --line:#1d3a5f;
+    --text:#e6f1ff; --muted:#8fb3d9; --cyan:#22d3ee; --mint:#34d399; --violet:#a78bfa;
+    --rose:#fb7185; --amber:#fbbf24; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.2px}
+  header h1 span{color:var(--cyan)}
+  .ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  select,input[type=text],textarea,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+  button{cursor:pointer}
+  button.primary{background:var(--cyan);color:#04202b;border-color:var(--cyan);font-weight:600}
+  button.ghost{background:transparent}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;border-radius:0;background:transparent;padding:6px 12px}
+  .seg button.on{background:var(--cyan);color:#04202b;font-weight:600}
+  .dots{margin-left:auto;display:flex;gap:14px;font-size:12px;color:var(--muted)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#475569;margin-right:6px;vertical-align:middle}
+  .dot.ok{background:var(--mint)} .dot.bad{background:var(--rose)}
+  main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(360px,.9fr);gap:18px;padding:18px 22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 12px;letter-spacing:.3px}
+  #chat{display:flex;flex-direction:column;min-height:70vh}
+  #messages{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:4px}
+  .msg{max-width:92%;padding:10px 14px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+  .msg.user{align-self:flex-end;background:#163a66}
+  .msg.assistant{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
+  .msg .tag{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;font-family:var(--mono)}
+  .msg img{max-width:100%;border-radius:10px;display:block;margin-top:8px}
+  .composer{display:flex;gap:10px;margin-top:12px}
+  .composer textarea{flex:1;min-height:64px;resize:vertical}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .chips button{font-size:12px;padding:5px 10px;color:var(--muted)}
+  .lane{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px}
+  .lane.local{background:rgba(52,211,153,.15);color:var(--mint)}
+  .lane.cloud,.lane.web,.lane.frontier{background:rgba(167,139,250,.18);color:var(--violet)}
+  .lane.image{background:rgba(251,191,36,.16);color:var(--amber)}
+  .reason{color:var(--muted);font-size:13px;margin:8px 0 14px;font-family:var(--mono)}
+  .row{display:grid;grid-template-columns:130px 1fr 48px;gap:10px;align-items:center;font-size:13px;margin:5px 0}
+  .bar{height:9px;border-radius:999px;background:#12305a;position:relative;overflow:visible}
+  .bar i{display:block;height:100%;border-radius:999px;background:var(--cyan);width:0;transition:width .35s}
+  .bar.private i{background:var(--rose)} .bar.web i{background:var(--violet)} .bar.diff i{background:var(--amber)}
+  .bar b{position:absolute;top:-4px;width:2px;height:17px;background:#fff;opacity:.6}
+  .num{font-family:var(--mono);text-align:right;color:var(--muted)}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:13px;margin-top:10px}
+  .kv div span{display:block;color:var(--muted);font-size:11px}
+  details{margin-top:10px;font-size:12px} summary{cursor:pointer;color:var(--muted)}
+  pre{background:#061426;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;max-height:260px;font-size:11.5px;font-family:var(--mono)}
+  .thr{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;font-size:13px}
+  .thr input[type=range]{width:100%} .thr .v{font-family:var(--mono);width:48px;text-align:right;color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{background:var(--panel2);border-radius:10px;padding:10px 12px}
+  .stat b{display:block;font-size:22px;font-weight:600} .stat span{font-size:12px;color:var(--muted)}
+  .stat.local b{color:var(--mint)} .stat.saved b{color:var(--cyan)}
+  .status{font-size:12px;color:var(--amber);min-height:16px;margin-top:6px;font-family:var(--mono)}
+  @media (max-width:980px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Jev</span> model router</h1>
+  <div class="ctl">Judge
+    <div class="seg" id="judgeSeg"><button data-j="jev">Jev (cloud)</button><button data-j="local">Local (Ollama)</button></div>
+  </div>
+  <div class="ctl">Model <select id="modelSel"><option value="auto">auto (judge decides)</option></select></div>
+  <div class="dots">
+    <span><i class="dot" id="dOllama"></i>Ollama</span>
+    <span><i class="dot" id="dJev"></i>TypeSafe key</span>
+    <span><i class="dot" id="dOR"></i>OpenRouter key</span>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="chat">
+    <h2>Chat</h2>
+    <div id="messages"></div>
+    <div class="status" id="status"></div>
+    <div class="composer">
+      <textarea id="prompt" placeholder="Ask anything — the judge decides where it goes. Shift+Enter for a new line."></textarea>
+      <button class="primary" id="send">Send</button>
+      <button class="ghost" id="clear" title="Clear conversation">Clear</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <aside style="display:flex;flex-direction:column;gap:18px">
+    <section class="card">
+      <h2>Last decision</h2>
+      <div id="decision"><div class="reason">Send a prompt to see what the judge decides.</div></div>
+    </section>
+    <section class="card">
+      <h2>Routing thresholds (live)</h2>
+      <div class="thr" id="thr"></div>
+      <label style="font-size:13px;display:block;margin-top:8px"><input type="checkbox" id="frontier"> enable frontier lane (Claude Opus 5 for hard prompts)</label>
+    </section>
+    <section class="card">
+      <h2>Session stats</h2>
+      <div class="stats" id="stats"></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { messages: [], judge: 'jev', model: 'auto', config: null };
+const EXAMPLES = [
+  "Hey, how's it going?",
+  "Write a Python function that removes duplicates from a list while preserving order.",
+  "My OpenRouter key is sk-or-v1-8f3ab12c9d... can you help me rotate it safely?",
+  "What is the latest news about TypeSafe AI's Jev model today?",
+  "Draw a sandy-coloured Maine Coon cat sitting in a sunlit meadow.",
+  "Compare event sourcing with CRUD for a banking ledger and recommend one for a 5-person team.",
+];
+
+// ── boot ──────────────────────────────────────────────────────────────────────
+async function boot() {
+  const [models, cfg, health] = await Promise.all([
+    fetch('/models').then(r => r.json()), fetch('/config').then(r => r.json()), fetch('/health').then(r => r.json())
+  ]);
+  for (const [id, m] of Object.entries(models.catalog)) {
+    const o = document.createElement('option'); o.value = id; o.textContent = m.label; $('#modelSel').append(o);
+  }
+  state.config = cfg; state.judge = cfg.judge; renderJudge(); renderThresholds(cfg.thresholds);
+  $('#dOllama').className = 'dot ' + (health.ollama ? 'ok' : 'bad');
+  $('#dJev').className = 'dot ' + (health.typesafe_key ? 'ok' : 'bad');
+  $('#dOR').className = 'dot ' + (health.openrouter_key ? 'ok' : 'bad');
+  for (const e of EXAMPLES) { const b = document.createElement('button'); b.textContent = e; b.onclick = () => { $('#prompt').value = e; }; $('#chips').append(b); }
+  refreshStats();
+}
+function renderJudge() {
+  document.querySelectorAll('#judgeSeg button').forEach(b => b.classList.toggle('on', b.dataset.j === state.judge));
+}
+$('#judgeSeg').onclick = async e => {
+  const j = e.target.dataset.j; if (!j) return;
+  state.judge = j; renderJudge();
+  await fetch('/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ judge: j }) });
+};
+$('#modelSel').onchange = e => state.model = e.target.value;
+
+// ── thresholds ────────────────────────────────────────────────────────────────
+const THR = [
+  ['private', 'private ≥ → stay local', 0, 1, .05],
+  ['web', 'needs_web ≥ → web model', 0, 1, .05],
+  ['local_max_difficulty', 'difficulty ≤ → small local model', 0, 4, .1],
+  ['frontier_difficulty', 'difficulty ≥ → frontier model', 0, 4, .1],
+  ['min_category_confidence', 'category confidence < → safe default', 0, 1, .05],
+];
+function renderThresholds(t) {
+  const box = $('#thr'); box.innerHTML = '';
+  for (const [key, label, min, max, step] of THR) {
+    const l = document.createElement('label'); l.textContent = label;
+    const wrap = document.createElement('div'); wrap.style.display = 'flex'; wrap.style.gap = '8px'; wrap.style.alignItems = 'center';
+    const r = Object.assign(document.createElement('input'), { type: 'range', min, max, step, value: t[key] });
+    const v = document.createElement('span'); v.className = 'v'; v.textContent = (+t[key]).toFixed(2);
+    r.oninput = () => v.textContent = (+r.value).toFixed(2);
+    r.onchange = () => postConfig({ [key]: +r.value });
+    wrap.append(r, v); box.append(l, wrap);
+  }
+  $('#frontier').checked = !!t.frontier_enabled;
+  $('#frontier').onchange = e => postConfig({ frontier_enabled: e.target.checked });
+}
+async function postConfig(patch) {
+  const r = await fetch('/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) });
+  state.config = await r.json();
+}
+
+// ── chat ──────────────────────────────────────────────────────────────────────
+function addMsg(role, text, tag) {
+  const d = document.createElement('div'); d.className = 'msg ' + role;
+  if (tag) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; d.append(t); }
+  const body = document.createElement('span'); body.className = 'body'; body.textContent = text; d.append(body);
+  $('#messages').append(d); $('#messages').scrollTop = 1e9; return d;
+}
+$('#clear').onclick = () => { state.messages = []; $('#messages').innerHTML = ''; };
+$('#prompt').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+$('#send').onclick = send;
+
+async function send() {
+  const text = $('#prompt').value.trim(); if (!text) return;
+  $('#prompt').value = ''; $('#status').textContent = '';
+  state.messages.push({ role: 'user', content: text }); addMsg('user', text);
+  const el = addMsg('assistant', '', 'deciding…'); const tagEl = el.querySelector('.tag'); const bodyEl = el.querySelector('.body');
+  $('#send').disabled = true;
+  try {
+    const res = await fetch('/chat', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: state.messages, model: state.model, judge: state.judge }) });
+    let full = '';
+    for await (const ev of sse(res)) {
+      if (ev.event === 'decision') { renderDecision(ev.data); tagEl.textContent = `lane: ${ev.data.route.lane} → ${ev.data.route.candidates[0].label}`; }
+      else if (ev.event === 'start') tagEl.textContent = `${ev.data.model} · streaming`;
+      else if (ev.event === 'token') { full += ev.data.text; bodyEl.textContent = full; $('#messages').scrollTop = 1e9; }
+      else if (ev.event === 'status') $('#status').textContent = ev.data.message;
+      else if (ev.event === 'image') { const img = document.createElement('img'); img.src = ev.data.data_url; el.append(img); bodyEl.textContent = 'Prompt used: ' + ev.data.rewritten_prompt; full = '[image]'; }
+      else if (ev.event === 'done') { tagEl.textContent = `${ev.data.model} · ${ev.data.gen_ms} ms · ≈$${ev.data.est_cost_usd}${ev.data.tokens_estimated ? ' (tokens estimated)' : ''}`; $('#status').textContent = ''; }
+      else if (ev.event === 'error') { bodyEl.textContent = '⚠ ' + ev.data.message; tagEl.textContent = 'error'; }
+    }
+    if (full) state.messages.push({ role: 'assistant', content: full });
+  } catch (e) { bodyEl.textContent = '⚠ ' + e.message; }
+  $('#send').disabled = false; refreshStats();
+}
+
+async function* sse(res) {
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  while (true) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+      let event = 'message', data = '';
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (data) yield { event, data: JSON.parse(data) };
+    }
+  }
+}
+
+// ── decision panel ────────────────────────────────────────────────────────────
+function bar(label, value, cls, threshold) {
+  const pct = Math.round(value * 100);
+  const mark = threshold != null ? `<b style="left:${threshold * 100}%"></b>` : '';
+  return `<div class="row"><span>${label}</span><div class="bar ${cls}"><i style="width:${pct}%"></i>${mark}</div><span class="num">${value.toFixed(2)}</span></div>`;
+}
+function renderDecision({ decision: d, route, prompt_tokens }) {
+  const t = state.config.thresholds;
+  let html = `<div><span class="lane ${route.lane}">${route.lane.toUpperCase()}</span> &nbsp;<span style="font-size:13px">${route.candidates.map(c => c.label).join('  →  ')}</span></div>
+              <div class="reason">${route.reason}</div>`;
+  if (!d) { $('#decision').innerHTML = html + `<div class="reason">judge skipped (model forced)</div>`; return; }
+  html += `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">category (choice) · confidence ${d.category_confidence.toFixed(2)}</div>`;
+  for (const [k, v] of Object.entries(d.category_probs).sort((a, b) => b[1] - a[1])) html += bar(k, v, '', null);
+  html += `<div style="font-size:12px;color:var(--muted);margin:10px 0 4px">difficulty (score) · ${d.difficulty.toFixed(2)} / 4 · ${d.difficulty_label} · confidence ${d.difficulty_confidence.toFixed(2)}</div>`;
+  html += bar('difficulty', d.difficulty / 4, 'diff', t.local_max_difficulty / 4) ;
+  html += `<div style="font-size:12px;color:var(--muted);margin:10px 0 4px">nouls (yes/no probability)</div>`;
+  html += bar('private', d.private, 'private', t.private);
+  html += bar('needs_web', d.needs_web, 'web', t.web);
+  html += `<div class="kv">
+      <div><span>judge</span>${d.judge} · ${d.judge_model}</div>
+      <div><span>judge latency</span>${d.latency_ms} ms</div>
+      <div><span>judge input tokens</span>${d.input_tokens || '–'}</div>
+      <div><span>prompt tokens (est.)</span>${prompt_tokens}</div></div>
+    <details><summary>raw request → judge</summary><pre>${esc(JSON.stringify(d.raw_request, null, 1))}</pre></details>
+    <details><summary>raw response ← judge</summary><pre>${esc(JSON.stringify(d.raw_response, null, 1))}</pre></details>`;
+  $('#decision').innerHTML = html;
+}
+const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// ── stats ─────────────────────────────────────────────────────────────────────
+async function refreshStats() {
+  const s = await fetch('/stats').then(r => r.json());
+  const lat = Object.entries(s.judge_latency_ms).map(([k, v]) => `${k}: ${v.avg_ms} ms (n=${v.n})`).join(' · ') || '–';
+  $('#stats').innerHTML = `
+    <div class="stat"><b>${s.requests}</b><span>requests</span></div>
+    <div class="stat local"><b>${s.local_pct}%</b><span>answered locally (${s.local})</span></div>
+    <div class="stat"><b>$${s.est_spend_usd.toFixed(4)}</b><span>est. spend (judge + cloud)</span></div>
+    <div class="stat saved"><b>$${s.est_saved_usd.toFixed(4)}</b><span>est. saved vs. all-cloud</span></div>
+    <div class="stat"><b>${s.private}</b><span>private prompts kept local</span></div>
+    <div class="stat"><b style="font-size:14px;line-height:1.4">${lat}</b><span>avg judge latency</span></div>`;
+}
+boot();
+</script>
+</body>
+</html>

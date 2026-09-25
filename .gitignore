@@ -1,0 +1,11 @@
+# Secrets — never commit; use .env.example as the template
+.env
+
+# Local request log (contains prompt text and decisions)
+*.sqlite3
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
